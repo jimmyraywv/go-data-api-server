@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apis
+  namespace: apis
+  labels:
+    app: apis
+spec:
+  selector:
+    matchLabels:
+      app: apis
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 5
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: apis
+    spec: 
+      containers:
+      - name: apis
+        image: <IMAGE>
+        args:
+          - -n=apis
+          - -l=debug
+          - -m=true
+        imagePullPolicy: Always
+        securityContext:  
+          allowPrivilegeEscalation: false  
+          runAsUser: 1000  
+          readOnlyRootFilesystem: true  
+        ports:
+        - containerPort: 8080
+        resources:  
+          limits:  
+            cpu: 200m  
+            memory: 20Mi  
+          requests:  
+            cpu: 200m  
+            memory: 20Mi  
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        volumeMounts:
+          - mountPath: /tmp
+            name: tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: apis
+  namespace: apis
+  labels:
+    app: apis
+    owner: jimmy
+spec:
+  type: NodePort  #Needed for instance type connection
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: apis
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: apis-allow-port-8080
+  namespace: apis
+  labels:
+    app: apis
+    owner: jimmy
+spec:
+  podSelector:
+    matchLabels:
+      app: apis
+  ingress:
+  - ports:
+    - port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+ name: default-deny-in
+ namespace: apis
+spec:
+ podSelector: {}
+ policyTypes:
+ - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-out
+  namespace: apis
+  labels:
+    app: apis
+    owner: jimmy
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "apis"
+  namespace: "apis"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/load-balancer-name: apis
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/success-codes: 200-299
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: <CERT_ARN>
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/tags: owner=jimmy,env=dev,billing=lob-cc
+  labels:
+    app: apis
+spec:
+  rules:
+    - host: "<HOST>"
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: apis
+                port: 
+                  number: 80
+
