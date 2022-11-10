@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	Log "github.com/sirupsen/logrus"
-	"io/ioutil"
+	"io"
 	"jimmyray.io/data-api/pkg/model"
 	"jimmyray.io/data-api/pkg/utils"
 	"net/http"
@@ -29,7 +29,7 @@ var employeeCount int
 
 func getCurrentFuncName() string {
 	pc, _, _, _ := runtime.Caller(1)
-	return fmt.Sprintf("%s", runtime.FuncForPC(pc).Name())
+	return runtime.FuncForPC(pc).Name()
 }
 
 func cleanData() {
@@ -87,7 +87,7 @@ func TestGetAllData(t *testing.T) {
 	res := w.Result()
 	defer res.Body.Close()
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 
 	if err != nil {
 		t.Errorf("expected error to be nil, received %v", err)
@@ -121,7 +121,7 @@ func TestGetData(t *testing.T) {
 	res := w.Result()
 	defer res.Body.Close()
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 
 	if err != nil {
 		t.Errorf("expected error to be nil, received %v", err)
@@ -144,7 +144,7 @@ func TestPatchData(t *testing.T) {
 	res := w.Result()
 	defer res.Body.Close()
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	//t.Logf("Return = %s", string(data))
 
 	if err != nil {
@@ -164,7 +164,7 @@ func TestPatchData(t *testing.T) {
 	res = w.Result()
 	defer res.Body.Close()
 
-	data, err = ioutil.ReadAll(res.Body)
+	data, err = io.ReadAll(res.Body)
 	//t.Logf("Return = %s", string(data))
 
 	if err != nil {
@@ -212,7 +212,7 @@ func TestDeleteData(t *testing.T) {
 	res := w.Result()
 	defer res.Body.Close()
 
-	_, err := ioutil.ReadAll(res.Body)
+	_, err := io.ReadAll(res.Body)
 
 	if err != nil {
 		t.Errorf("expected error to be nil, received %v", err)
@@ -236,7 +236,7 @@ func TestCreateData(t *testing.T) {
 	res := w.Result()
 	defer res.Body.Close()
 
-	_, err := ioutil.ReadAll(res.Body)
+	_, err := io.ReadAll(res.Body)
 	//t.Logf("Return = %s", string(data))
 
 	if err != nil {

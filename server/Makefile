@@ -91,7 +91,9 @@ init:	## Initialize Go project
 	go mod tidy
 
 check:	## Vet and Lint Go codebase
-	-go vet main
+	-go generate ./...
+	-go vet ./...
+	-go fmt ./...
 	-golangci-lint run
 
 test:	## Run tests
