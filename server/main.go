@@ -83,6 +83,7 @@ func initService() {
 		} else {
 			errorData := utils.ErrorLog{Skip: 1, Event: model.MockDataErr, Message: err.Error()}
 			utils.LogErrors(errorData)
+			panic(err)
 		}
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"jimmyray.io/data-api/pkg/data"
 	"jimmyray.io/data-api/pkg/utils"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ const (
 	ValidationErr     string = "VALIDATION_ERR"
 	InternalServerErr string = "INTERNAL_SERVER_ERR"
 	MockDataErr       string = "Mock_Data_Err"
+	IncorrectIdErr    string = "INCORRECT_ID_ERR"
 	IncorrectInputErr string = `Please check submission:
 {"id":"<id>","fname":"<fname>","lname":"<lanme>","sex":"<sex>","dob":"<yyyy-mm-ddThh:MM:ssZ>",
 "hireDate":"<yyyy-mm-ddThh:MM:ssZ>","position":"<position>>","salary":<salary>,
@@ -34,9 +36,8 @@ const (
 )
 
 var (
-	ErrDataNotFound   = errors.New(DataNotFoundErr)
-	ErrDataConflict   = errors.New(DataConflictErr)
-	ErrInternalServer = errors.New(InternalServerErr)
+	ErrDataNotFound = errors.New(DataNotFoundErr)
+	ErrDataConflict = errors.New(DataConflictErr)
 )
 
 var Validate *validator.Validate
@@ -237,8 +238,14 @@ func (c Controller) DeleteData(w http.ResponseWriter, r *http.Request) {
 	}(r.Body)
 
 	id := mux.Vars(r)["id"]
+	err := validateId(id)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, IncorrectIdErr)
+		return
+	}
 
-	err := Delete(id)
+	err = Delete(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = fmt.Fprint(w, ErrDataNotFound)
@@ -268,6 +275,13 @@ func (c Controller) PatchData(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = fmt.Fprint(w, IncorrectInputErr)
+		return
+	}
+
+	err = validateId(input.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, IncorrectIdErr)
 		return
 	}
 
@@ -320,6 +334,13 @@ func (c Controller) CreateData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = validateId(newData.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, IncorrectIdErr)
+		return
+	}
+
 	err = C.L.Create(newData)
 
 	if err != nil {
@@ -328,7 +349,7 @@ func (c Controller) CreateData(w http.ResponseWriter, r *http.Request) {
 			_, _ = fmt.Fprint(w, DataConflictErr)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = fmt.Fprint(w, ErrInternalServer)
+			_, _ = fmt.Fprint(w, InternalServerErr)
 		}
 		return
 	}
@@ -337,6 +358,13 @@ func (c Controller) CreateData(w http.ResponseWriter, r *http.Request) {
 
 func (c Controller) GetData(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	err := validateId(id)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, IncorrectIdErr)
+		return
+	}
 
 	foundData, found := c.L.Read(id)
 	if !found {
@@ -346,7 +374,7 @@ func (c Controller) GetData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(foundData)
+	err = json.NewEncoder(w).Encode(foundData)
 	if err != nil {
 		errorData := utils.ErrorLog{Skip: 1, Event: JsonEncodeErr, Message: err.Error(), ErrorData: string(foundData.Json())}
 		utils.LogErrors(errorData)
@@ -354,10 +382,15 @@ func (c Controller) GetData(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c Controller) GetAllData(w http.ResponseWriter, r *http.Request) {
-	data := ReadAll()
-	err := json.NewEncoder(w).Encode(data)
+	allData := ReadAll()
+	err := json.NewEncoder(w).Encode(allData)
 	if err != nil {
-		errorData := utils.ErrorLog{Skip: 1, Event: JsonEncodeErr, Message: err.Error(), ErrorData: string(data.Json())}
+		errorData := utils.ErrorLog{Skip: 1, Event: JsonEncodeErr, Message: err.Error(), ErrorData: string(allData.Json())}
 		utils.LogErrors(errorData)
 	}
+}
+
+func validateId(id string) error {
+	_, err := strconv.ParseInt(id, 10, 64)
+	return err
 }
